@@ -31,7 +31,6 @@ public class ApplicationUtil {
             String line = null;
             List<String> lines = new ArrayList<>();
             while ((line = reader.readLine()) != null) {
-                System.out.println("LINE: [{}]" + line);
                 lines.add(line);
             }
             return lines.stream();

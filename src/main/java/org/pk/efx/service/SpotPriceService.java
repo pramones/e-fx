@@ -1,11 +1,12 @@
 package org.pk.efx.service;
 
-import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.pk.efx.constants.ApplicationConstants;
 import org.pk.efx.model.SpotPrice;
 import org.pk.efx.repository.SpotPriceRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,8 +26,12 @@ public class SpotPriceService {
         this.priceAdjusterService = priceAdjusterService;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public void process(String chunk) {
+        update(parse(chunk));
+    }
+
+    public List<SpotPrice> parse(String chunk) {
         log.debug("Processing SpotPrice's feed chunk");
         List<SpotPrice> spotPrices = Stream.of(chunk.split(ApplicationConstants.NEW_LINE_REGEX))
                 .filter((line) -> line != null && !line.isBlank())
@@ -47,11 +52,15 @@ public class SpotPriceService {
 
                     return spotPrice;
                 }).collect(Collectors.toList());
+        return spotPrices;
+    }
 
-        log.debug("Replacing SpotPrice's in the database");
+    public void update(List<SpotPrice> spotPrices) {
+        log.debug("Updating SpotPrice's in the database");
         spotPrices.forEach((spotPrice) -> {
             spotPriceRepository.deleteByInstrumentAndTimestampBefore(spotPrice.getInstrument(), spotPrice.getTimestamp());
             spotPriceRepository.save(spotPrice);
         });
+        log.debug("SpotPrice's has been updated in the database");
     }
 }
